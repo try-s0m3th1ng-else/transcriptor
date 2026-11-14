@@ -1,0 +1,293 @@
+<title>Transcriptor de analíticas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: dos paneles de trabajo (informe pegado → lista para la HC), barra de opciones encima del resultado */
+:root {
+  --bg: #f3f6f7;
+  --panel: #ffffff;
+  --line: #d5dde1;
+  --fg: #16232b;
+  --muted: #5a6b75;
+  --accent: #1d5c7a;
+  --accent-fg: #ffffff;
+  --alert: #b3261e;
+  --alert-bg: #fbeceb;
+  --warn: #8a5a00;
+  --warn-bg: #fdf3dc;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1619; --panel: #162126; --line: #2a3a42; --fg: #e3ecef; --muted: #93a5ae;
+  --accent: #6fb3d2; --accent-fg: #0b1418; --alert: #ff8a80; --alert-bg: #3a1c1a;
+  --warn: #f0c46a; --warn-bg: #3a2e14; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f1619; --panel: #162126; --line: #2a3a42; --fg: #e3ecef; --muted: #93a5ae;
+  --accent: #6fb3d2; --accent-fg: #0b1418; --alert: #ff8a80; --alert-bg: #3a1c1a;
+  --warn: #f0c46a; --warn-bg: #3a2e14; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.45;
+  padding-block: 20px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+h1 { font-size: 1.35rem; font-weight: 600; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 0.875rem; margin: 0; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+.pane { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; display: flex; flex-direction: column; min-width: 0; }
+.pane-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+textarea, .out {
+  font-family: var(--mono); font-size: 0.8125rem; line-height: 1.55; color: var(--fg); background: transparent;
+  border: 0; padding: 14px; margin: 0; width: 100%; min-height: 440px; resize: vertical; overflow: auto;
+  white-space: pre; tab-size: 4;
+}
+textarea:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+.out { white-space: pre-wrap; font-size: 0.875rem; }
+.out .alt { color: var(--alert); font-weight: 600; }
+.out .hdr { font-weight: 600; }
+.out .unk { color: var(--warn); }
+.out .altb { font-weight: 600; }
+.out:empty::before { content: "Pega el texto del informe en el panel de la izquierda."; color: var(--muted); font-family: var(--sans); }
+.opts { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 0.875rem; }
+.opts label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+select { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+button {
+  font: inherit; font-size: 0.875rem; font-weight: 500; border-radius: 6px; padding: 6px 14px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--fg);
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-top: 1px solid var(--line); font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+.chip { border-radius: 999px; padding: 2px 10px; background: var(--bg); color: var(--muted); }
+.chip.alert { background: var(--alert-bg); color: var(--alert); }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.note { font-size: 0.8125rem; color: var(--muted); margin: 0; }
+.meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ver { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+.update { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 14px; font-size: 0.875rem; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--fg); padding: 0; width: min(560px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(0,0,0,0.45); }
+.rep { display: grid; gap: 12px; padding: 18px; }
+.rep h2 { font-size: 1.05rem; margin: 0; }
+.rep label { display: grid; gap: 4px; font-size: 0.8125rem; color: var(--muted); }
+.rep input[type=text], .rep textarea { font: inherit; font-size: 0.875rem; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; width: 100%; min-height: 0; white-space: pre-wrap; resize: vertical; }
+.rep textarea { font-family: var(--mono); font-size: 0.8125rem; min-height: 60px; }
+.rep .warnbox { background: var(--warn-bg); color: var(--warn); border-radius: 6px; padding: 8px 10px; font-size: 0.8125rem; }
+.rep .err { color: var(--alert); font-size: 0.8125rem; min-height: 1em; margin: 0; }
+.rep .hp { position: absolute; left: -9999px; }
+.rep .actions { display: flex; justify-content: flex-end; gap: 8px; }
+.banner { background: var(--warn-bg); color: var(--warn); padding: 8px 14px; font-size: 0.8125rem; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Transcriptor de analíticas</h1>
+    <div class="meta">
+      <span class="ver" id="ver"></span>
+      <button id="report" type="button">Reportar error</button>
+    </div>
+    <p class="sub" style="flex-basis:100%">Todo se procesa en este navegador. El informe pegado nunca sale del ordenador.</p>
+  </header>
+  <div id="update" class="update" hidden>Hay una versión nueva del transcriptor. <button id="reload" type="button">Recargar</button></div>
+
+  <div class="grid">
+    <section class="pane">
+      <div class="pane-head">
+        <span class="label">Informe del laboratorio</span>
+        <div class="btns">
+          <button id="clear" type="button">Vaciar</button>
+        </div>
+      </div>
+      <textarea id="input" spellcheck="false" aria-label="Texto copiado del informe del laboratorio" placeholder="Pega aquí el texto copiado del informe del laboratorio"></textarea>
+    </section>
+
+    <section class="pane">
+      <div class="pane-head">
+        <span class="label">Para la historia clínica</span>
+        <button id="copy" class="primary" type="button">Copiar</button>
+      </div>
+      <div class="opts">
+        <label><input type="checkbox" id="all"> Mostrar todas las pruebas</label>
+        <label>Valores normales
+          <select id="ranges">
+            <option value="altered">Solo en alterados</option>
+            <option value="none">Ocultar</option>
+            <option value="all">En todos</option>
+          </select>
+        </label>
+      </div>
+      <div id="banner" class="banner" hidden></div>
+      <div id="out" class="out" aria-live="polite"></div>
+      <div id="chips" class="chips"></div>
+    </section>
+  </div>
+  <p class="note">Por defecto se ocultan las pruebas secundarias normales (hematíes, fórmula menor, ADE, VPM…). Las pruebas que la herramienta no reconoce salen en «Otros», resaltadas en ámbar, para que no se pierda nada.</p>
+</div>
+
+<dialog id="dlg" aria-labelledby="dlg-t">
+  <form class="rep" id="repform" method="dialog">
+    <h2 id="dlg-t">Reportar un error</h2>
+    <div class="warnbox">No escribas datos del paciente (nombre, NHC, DNI, fechas, nº de petición). Copia solo la línea de la prueba que falla. El informe pegado no se envía.</div>
+    <label>Prueba afectada *<input type="text" id="r-test" maxlength="80" required placeholder="Ej.: Procalcitonina"></label>
+    <label>Qué salió (o «no aparece»)<textarea id="r-got" maxlength="300" placeholder="Ej.: no aparece en la lista"></textarea></label>
+    <label>Qué esperabas que saliera<textarea id="r-exp" maxlength="300" placeholder="Ej.: PCT 0,8 ng/mL *"></textarea></label>
+    <label>Comentario<textarea id="r-com" maxlength="500"></textarea></label>
+    <label>Tu nombre (opcional)<input type="text" id="r-who" maxlength="40"></label>
+    <input type="text" id="r-hp" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <p class="err" id="r-err" role="alert"></p>
+    <div class="actions">
+      <button type="button" id="r-cancel">Cancelar</button>
+      <button type="submit" class="primary" id="r-send">Enviar</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+/*PARSER*/
+</script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var input = $('input'), out = $('out'), all = $('all'), ranges = $('ranges');
+  var lastText = '';
+
+  function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+
+  function esc(s) { return s.replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
+
+  function update() {
+    var parsed = parse(input.value);
+    lastText = render(parsed, { all: all.checked, ranges: ranges.value });
+    var headers = {};
+    GROUPS.forEach(function (g) { if (g.header) headers[g.header] = g.id; });
+    var inOtros = false;
+    out.innerHTML = lastText ? lastText.split('\n').map(function (l) {
+      if (headers[l] || /^GASOMETRÍA (ARTERIAL|VENOSA)$/.test(l)) { inOtros = headers[l] === 'otros'; return '<span class="hdr">' + esc(l) + '</span>'; }
+      if (!l) { inOtros = false; return ''; }
+      var isAlt = / \*( |$)/.test(l);
+      var cls = inOtros ? (isAlt ? 'unk altb' : 'unk') : (isAlt ? 'alt' : '');
+      return cls ? '<span class="' + cls + '">' + esc(l) + '</span>' : esc(l);
+    }).join('\n') : '';
+
+    // Resultados reconocidos, incluidos los de cada gasometría.
+    var entries = Object.keys(parsed.found).map(function (k) { return parsed.found[k]; });
+    (parsed.gasos || []).forEach(function (g) { Object.keys(g.found).forEach(function (k) { entries.push(g.found[k]); }); });
+    var keys = entries;
+    var nAlt = entries.filter(function (e) { return e.res.altered; }).length
+      + parsed.unknown.filter(function (u) { return u.res.altered; }).length;
+    var chips = [];
+    if (input.value.trim()) {
+      chips.push('<span class="chip">' + keys.length + ' reconocidas</span>');
+      chips.push('<span class="chip' + (nAlt ? ' alert' : '') + '">' + nAlt + ' alteradas</span>');
+      if (parsed.unknown.length) chips.push('<span class="chip warn">' + parsed.unknown.length + ' sin reconocer</span>');
+    }
+    $('chips').innerHTML = chips.join('');
+
+    var banner = $('banner');
+    if (parsed.warnScrambled) {
+      banner.textContent = 'El texto parece copiado por columnas o en fragmentos (nombres por un lado, valores y rangos por otro). No lo proceso para no cruzar valores. Prueba a copiar desde otro visor de PDF (Adobe Reader, Chrome o Edge) o selecciona fila a fila.';
+      banner.hidden = false;
+    } else if (input.value.trim() && !lastText) {
+      banner.textContent = 'No he reconocido ninguna prueba. Comprueba que el texto incluye nombre, resultado y unidades en la misma fila.';
+      banner.hidden = false;
+    } else if (parsed.missing && parsed.missing.length) {
+      banner.textContent = 'No he encontrado el resultado de: ' + parsed.missing.join(', ') + '. Revísalo en el informe.';
+      banner.hidden = false;
+    } else if (parsed.ageMissing) {
+      banner.textContent = 'No encuentro la edad del paciente, así que no pongo los rangos que dependen de la edad (glucosa, proteínas, tiroides…). Copia el informe completo, con la cabecera.';
+      banner.hidden = false;
+    } else banner.hidden = true;
+  }
+
+  $('copy').addEventListener('click', function () {
+    var btn = this;
+    function done() { btn.textContent = 'Copiado'; setTimeout(function () { btn.textContent = 'Copiar'; }, 1500); }
+    function fallback() {
+      var r = document.createRange(); r.selectNodeContents(out);
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      try { if (document.execCommand('copy')) { done(); return; } } catch (e) {}
+      btn.textContent = 'Pulsa Ctrl+C';
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(lastText).then(done, fallback);
+    else fallback();
+  });
+  $('clear').addEventListener('click', function () { input.value = ''; update(); input.focus(); });
+  input.addEventListener('input', update);
+  all.addEventListener('change', function () { store('ta_all', all.checked ? '1' : ''); update(); });
+  ranges.addEventListener('change', function () { store('ta_ranges', ranges.value); update(); });
+
+
+  // ---------- Versión, aviso de actualización y reporte de errores ----------
+  var APP_VERSION = '/*VERSION*/';
+  // URL del Web App de Google Apps Script que guarda los reportes en la hoja. Vacía = sin envío.
+  var REPORT_URL = '/*REPORT_URL*/';
+  $('ver').textContent = 'v' + APP_VERSION;
+
+  // Si la página lleva horas abierta, avisa cuando haya una versión publicada distinta.
+  function checkVersion() {
+    if (location.protocol.indexOf('http') !== 0 || !window.fetch) return;
+    fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); })
+      .then(function (j) { if (j.version && j.version !== APP_VERSION) $('update').hidden = false; }).catch(function () {});
+  }
+  $('reload').addEventListener('click', function () { location.reload(); });
+  setInterval(checkVersion, 20 * 60 * 1000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) checkVersion(); });
+
+  // Bloquea lo que parece un identificador de paciente antes de enviar nada.
+  var PHI = [
+    [/\b\d{8}[A-Za-z]\b|\b[XYZxyz]\d{7}[A-Za-z]\b/, 'un DNI/NIE'],
+    [/\d{6,}/, 'un número largo (NHC, nº de petición, teléfono)'],
+    [/\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b/, 'una fecha'],
+    [/\b(paciente|nombre|nhc|cip|dni|nie|f\.? ?nac|nacimiento|petici[oó]n)\s*[:=]/i, 'un campo de identificación'],
+    [/@/, 'un correo electrónico']
+  ];
+  function phiCheck(txt) { for (var i = 0; i < PHI.length; i++) if (PHI[i][0].test(txt)) return PHI[i][1]; return null; }
+
+  var dlg = $('dlg'), rerr = $('r-err');
+  $('report').addEventListener('click', function () {
+    rerr.textContent = '';
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+    $('r-test').focus();
+  });
+  $('r-cancel').addEventListener('click', function () { dlg.close ? dlg.close() : dlg.removeAttribute('open'); });
+  $('repform').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var data = {
+      version: APP_VERSION,
+      prueba: $('r-test').value.trim(),
+      obtenido: $('r-got').value.trim(),
+      esperado: $('r-exp').value.trim(),
+      comentario: $('r-com').value.trim(),
+      autor: $('r-who').value.trim(),
+      hp: $('r-hp').value
+    };
+    if (!data.prueba) { rerr.textContent = 'Indica la prueba afectada.'; return; }
+    var hit = phiCheck([data.prueba, data.obtenido, data.esperado, data.comentario].join('\n'));
+    if (hit) { rerr.textContent = 'Parece que has escrito ' + hit + '. Quítalo antes de enviar.'; return; }
+    if (!REPORT_URL || REPORT_URL.indexOf('/*') === 0) { rerr.textContent = 'El envío de reportes no está configurado en esta copia.'; return; }
+    var send = $('r-send'); send.disabled = true; send.textContent = 'Enviando…';
+    // text/plain + no-cors: el navegador envía sin pedir permiso previo (CORS) a Google.
+    fetch(REPORT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) })
+      .then(function () {
+        $('repform').reset(); dlg.close ? dlg.close() : dlg.removeAttribute('open');
+        var b = $('report'); b.textContent = 'Reporte enviado. Gracias'; setTimeout(function () { b.textContent = 'Reportar error'; }, 3000);
+      }, function () { rerr.textContent = 'No se ha podido enviar (¿sin conexión?). Inténtalo más tarde.'; })
+      .then(function () { send.disabled = false; send.textContent = 'Enviar'; });
+  });
+
+  all.checked = load('ta_all') === '1';
+  var r = load('ta_ranges'); if (r) ranges.value = r;
+  update();
+  input.focus();
+})();
+</script>

@@ -1,0 +1,6 @@
+# Nunca subir informes reales ni ejemplos con datos de pacientes
+*.pdf
+Ejemplos*/
+# Salidas locales de build.py que no se publican
+transcriptor.html
+transcriptor-artifact.html

@@ -237,7 +237,13 @@ dialog::backdrop { background: rgba(0,0,0,0.45); }
   function checkVersion() {
     if (location.protocol.indexOf('http') !== 0 || !window.fetch) return;
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); })
-      .then(function (j) { if (j.version && j.version !== APP_VERSION) $('update').hidden = false; }).catch(function () {});
+      .then(function (j) { if (j.version && newer(j.version, APP_VERSION)) $('update').hidden = false; }).catch(function () {});
+  }
+  // Solo avisa si la publicada es MÁS nueva: tras publicar, la caché de GitHub puede servir unos minutos el version.json anterior.
+  function newer(a, b) {
+    a = a.split('.').map(Number); b = b.split('.').map(Number);
+    for (var i = 0; i < 3; i++) { if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0); }
+    return false;
   }
   $('reload').addEventListener('click', function () { location.reload(); });
   setInterval(checkVersion, 20 * 60 * 1000);

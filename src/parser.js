@@ -79,8 +79,8 @@ var TESTS = [
   { key: 'mg', label: 'Magnesio', group: 'iones', level: 1, alias: ['magnesi', 'magnesio', 'mg'] },
   { key: 'p', label: 'Fósforo', group: 'iones', level: 1, alias: ['fosfat', 'fosfato', 'fosfor', 'fosforo'] },
   // Hepático
-  { key: 'ast', label: 'AST (GOT)', group: 'hep', level: 1, alias: ['transaminasa got', 'transaminasa ast', 'got ast', 'aspartat aminotransferasa', 'aspartato aminotransferasa', 'ast', 'got', 'ast got'] },
-  { key: 'alt', label: 'ALT (GPT)', group: 'hep', level: 1, alias: ['transaminasa gpt', 'transaminasa alt', 'gpt alt', 'alanina aminotransferasa', 'alt', 'gpt', 'alt gpt'] },
+  { key: 'ast', label: 'AST (GOT)', group: 'hep', level: 1, alias: ['transaminasa got', 'transaminasa ast', 'got ast', 'aspartat aminotransferasa', 'aspartato aminotransferasa', 'ast', 'got', 'ast got', 'tgo', 'tgo ast', 'ast tgo', 'transaminasa tgo'] },
+  { key: 'alt', label: 'ALT (GPT)', group: 'hep', level: 1, alias: ['transaminasa gpt', 'transaminasa alt', 'gpt alt', 'alanina aminotransferasa', 'alt', 'gpt', 'alt gpt', 'tgp', 'tgp alt', 'alt tgp', 'transaminasa tgp'] },
   { key: 'ggt', label: 'GGT', group: 'hep', level: 1, alias: ['gamma gt', 'gamma glutamiltransferasa', 'gamma glutamil transferasa', 'ggt'] },
   { key: 'fa', label: 'FA', group: 'hep', level: 1, alias: ['fosfatasa alcalina', 'fa', 'alp'] },
   { key: 'bt', label: 'Bilirrubina total', group: 'hep', level: 1, alias: ['bilirubina', 'bilirubina total', 'bilirrubina', 'bilirrubina total'] },
@@ -453,6 +453,9 @@ function tokenize(line) {
 
 // Cabecera de sección del informe de la clínica: "GLUCOSA, SUERO", "SEDIMENTO, ORINA".
 var SECTION = /^([^:]*[A-Za-zÀ-ú0-9)])\s*,\s*(suero|sangre|sangre total|sangre venosa|sangre arterial|sangre capilar|plasma|orina|heces|lcr)$/i;
+// Una unidad sola en su línea: lleva barra (U/L, mg/dL, cel/mm³) o es % / una unidad conocida pegable.
+var UNIT_LINE = { test: function (l) { return /^[A-Za-zµμ%][^\s\d:]*\/[^\s:]+$/.test(l) || l === '%' || (GLUED_UNIT.test(l) && /^[A-Za-zµμ]/.test(l)); } };
+var SPECIMEN_LINE = /^(suero|sangre|sangre total|sangre venosa|sangre arterial|sangre capilar|plasma|orina|heces|lcr)$/i;
 var SECTION_PREFIX = { suero: 'Srm-', sangre: 'San-', 'sangre total': 'San-', 'sangre venosa': 'San-', 'sangre arterial': 'San-', 'sangre capilar': 'San-', plasma: 'Pla-', orina: 'Uri-', heces: 'Hec-', lcr: 'Lcr-' };
 // Líneas que no son resultados.
 var NOISE = /^(m[eé]todo|valores de referencia|interpretaci[oó]n|nota|v\.? discriminante|muestra|observaciones|p[aá]g\.?\s*\d)\b|cerba internacional/i;
@@ -463,6 +466,18 @@ var END = /^(validado por|informe preliminar|pruebas en curso)\b|director t[eé]
 
 function parse(text) {
   var lines = text.split(/\r?\n/);
+  // Cabecera partida en dos líneas por el visor: "ASPARTATO AMINOTRANSFERASA (GOT/AST)," + "SUERO".
+  for (var li = lines.length - 2; li >= 0; li--) {
+    if (/,\s*$/.test(lines[li]) && !/:/.test(lines[li]) && SPECIMEN_LINE.test(lines[li + 1].trim())) {
+      lines.splice(li, 2, lines[li].replace(/\s+$/, '') + ' ' + lines[li + 1].trim());
+    }
+  }
+  // Valor y unidad en líneas separadas (visor del trabajo): "17.4" + "U/L" -> "17.4 U/L".
+  for (li = lines.length - 2; li >= 0; li--) {
+    if (/^\s*(\*\s*)?[<>≤≥]?=?\d+(?:[.,]\d+)?\s*$/.test(lines[li]) && UNIT_LINE.test(lines[li + 1].trim())) {
+      lines.splice(li, 2, lines[li].trim() + ' ' + lines[li + 1].trim());
+    }
+  }
   var found = {}, unknown = [], pending = null, carry = null, orphans = 0, section = null, last = null, missing = [];
   var nameOnly = 0, inline = 0, clinic = false, gasoType = '', crossed = false, block = null, gasos = [];
   // Edad del paciente (cabecera "edad: 46 años"), solo para elegir rangos que dependen de la edad.

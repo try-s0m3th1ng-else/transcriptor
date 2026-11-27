@@ -615,6 +615,8 @@ function tokenize(line) {
 
 // Cabecera de sección del informe de la clínica: "GLUCOSA, SUERO", "SEDIMENTO, ORINA".
 var SECTION = /^([^:]*[A-Za-zÀ-ú0-9)])\s*,\s*(suero|sangre|sangre total|sangre venosa|sangre arterial|sangre capilar|plasma|orina|heces|lcr)$/i;
+// Una unidad sola en su línea: lleva barra (U/L, mg/dL, cel/mm³) o es % / una unidad conocida pegable.
+var UNIT_LINE = { test: function (l) { return /^[A-Za-zµμ%][^\s\d:]*\/[^\s:]+$/.test(l) || l === '%' || (GLUED_UNIT.test(l) && /^[A-Za-zµμ]/.test(l)); } };
 var SPECIMEN_LINE = /^(suero|sangre|sangre total|sangre venosa|sangre arterial|sangre capilar|plasma|orina|heces|lcr)$/i;
 var SECTION_PREFIX = { suero: 'Srm-', sangre: 'San-', 'sangre total': 'San-', 'sangre venosa': 'San-', 'sangre arterial': 'San-', 'sangre capilar': 'San-', plasma: 'Pla-', orina: 'Uri-', heces: 'Hec-', lcr: 'Lcr-' };
 // Líneas que no son resultados.
@@ -630,6 +632,12 @@ function parse(text) {
   for (var li = lines.length - 2; li >= 0; li--) {
     if (/,\s*$/.test(lines[li]) && !/:/.test(lines[li]) && SPECIMEN_LINE.test(lines[li + 1].trim())) {
       lines.splice(li, 2, lines[li].replace(/\s+$/, '') + ' ' + lines[li + 1].trim());
+    }
+  }
+  // Valor y unidad en líneas separadas (visor del trabajo): "17.4" + "U/L" -> "17.4 U/L".
+  for (li = lines.length - 2; li >= 0; li--) {
+    if (/^\s*(\*\s*)?[<>≤≥]?=?\d+(?:[.,]\d+)?\s*$/.test(lines[li]) && UNIT_LINE.test(lines[li + 1].trim())) {
+      lines.splice(li, 2, lines[li].trim() + ' ' + lines[li + 1].trim());
     }
   }
   var found = {}, unknown = [], pending = null, carry = null, orphans = 0, section = null, last = null, missing = [];
